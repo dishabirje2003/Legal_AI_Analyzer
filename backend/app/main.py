@@ -66,14 +66,27 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Legal AI Analyzer API", version="0.1.0", lifespan=lifespan)
 
+    # Always configure CORS. Use env var if set, otherwise fall back to known Vercel URL.
+    # This prevents CORS failures if FRONTEND_ORIGIN is missing after a Render redeploy.
+    allowed_origins = []
     if settings.frontend_origin:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[settings.frontend_origin],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        allowed_origins.append(settings.frontend_origin)
+    # Hardcoded fallback — ensures the Vercel frontend always works
+    vercel_fallback = "https://legal-ai-analyzer-beta.vercel.app"
+    if vercel_fallback not in allowed_origins:
+        allowed_origins.append(vercel_fallback)
+    # Also allow localhost for local development
+    allowed_origins.append("http://localhost:5173")
+    allowed_origins.append("http://localhost:3000")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 
     app.include_router(upload_router)
     app.include_router(document_router)
